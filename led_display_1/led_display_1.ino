@@ -7,46 +7,67 @@
 */
 #include <SPI.h>
 #include <DMD2.h>
-#include <fonts/Arial14.h>
+#include <fonts/Arial_Black_16.h>
+// #include <fonts/Droid_Sans_16.h>
 
 /* For "Hello World" as your message, leave the width at 4 even if you only have one display connected */
 #define DISPLAYS_WIDE 2
 #define DISPLAYS_HIGH 1
 
 SoftDMD dmd(DISPLAYS_WIDE,DISPLAYS_HIGH);
-DMD_TextBox box(dmd, 0, 0, 32, 16);
+DMD_TextBox box(dmd);
+// DMD_TextBox box(dmd, 0, 0, 32, 16);
+
+String inputString = "Line Monitor v0.0.2                    ";      // a String to hold incoming data
+int msgLen = 40;
+bool stringComplete = false;  // whether the string is complete
+
 
 // the setup routine runs once when you press reset:
 void setup() {
-  dmd.setBrightness(255);
-  dmd.selectFont(Arial14);
-  dmd.begin();
-  /* TIP: If you want a longer string here than fits on your display, just define the display DISPLAYS_WIDE value to be wider than the
-    number of displays you actually have.
-   */
-  dmd.drawString(0, 0, F("Hello World!"));
-}
+  // initialize serial:
+  Serial.begin(9600);
 
-int phase = 0; // 0-3, 'phase' value determines direction
+  dmd.setBrightness(255);
+  // dmd.selectFont(Droid_Sans_16);
+  dmd.selectFont(Arial_Black_16);
+  dmd.begin();
+
+  dmd.clearScreen();
+  // dmd.drawString(0, 0, message1);
+}
 
 // the loop routine runs over and over again forever:
+
 void loop() {
-  int steps = random(48); // Each time we scroll a random distance
-  for(int i = 0; i < steps; i++) {
-    // Do a different type of scroll, depending on which phase we are in
-    switch(phase) {
-      case 0:
-       dmd.marqueeScrollX(1); break;
-      case 1:
-       dmd.marqueeScrollX(-1); break;
-      case 2:
-       dmd.marqueeScrollY(1); break;
-      case 3:
-       dmd.marqueeScrollY(-1); break;
-    }
-    delay(10);
+  for(int i = 0; i < msgLen; i++) {
+    // Serial.print(*next);
+    box.print(inputString[i]);
+    delay(200);
   }
 
-  // Move to the next phase
-  phase = (phase + 1) % 4;
+  if (stringComplete) {
+    Serial.println(inputString);
+    // clear the string:
+    // inputString = "";
+    stringComplete = false;
+  }
 }
+
+void serialEvent() {
+  int i = 0;
+  while (Serial.available()) {
+    // get the new byte:
+    char inChar = (char)Serial.read();
+    // add it to the inputString:
+    inputString[i] = inChar;
+    i++;
+    // if the incoming character is a newline, set a flag so the main loop can
+    // do something about it:
+    if (inChar == '\n') {
+      stringComplete = true;
+      msgLen = i;
+    }
+  }
+}
+
