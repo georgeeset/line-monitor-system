@@ -23,12 +23,15 @@ bool threeSec = false; // marker for states like fault desable and test
 byte buttonHoldCounter = 0; //count how long button remain pressed
 bool resetMode = false; // reset cpu delibrately
 bool testMode = false; // indicaate test mode
-
+const char okay[]= "N5xxxxx\n";
+const char fault[] = "F5xxxxx\n";
+const char test[] = "T5xxxxx\n";
+// const unsigned long mcNumber = 1;
 
 
 
 void timerIsr() {
-  // this function will be called every 1 second
+  // this function will be called every 1/2 second
   counter++;
   debounce++;
 
@@ -62,7 +65,7 @@ void myPushButton() {
   buttonPressed = !digitalRead(push_button);
   trigger = false; // disable fault trigger
   testMode = false; // disable test mode
-  sendPacket("N1");
+  sendPacket(okay);
 }
 
 void myProbe() {
@@ -75,6 +78,7 @@ void myProbe() {
 }
 
 void setup() {
+  // delay(mcNumber); //set random delay time to 
   Timer1.initialize(500000); // set timer for 1/2 second
   Timer1.attachInterrupt(timerIsr); // attach the timer interrupt
   pinMode(push_button, INPUT_PULLUP); // push button state
@@ -119,7 +123,7 @@ void loop() {
     Serial.print("shout out ");
     Serial.println(counter);
 
-    sendPacket("N1"); // Normal state
+    sendPacket(okay); // Normal state
     shoutTime = false;
   }
 
@@ -137,7 +141,7 @@ void loop() {
       Serial.println("test mode activated");
       testMode = true;
       trigger = false; // stop machine fault mode if active;
-      sendPacket("T1");
+      sendPacket(test);
     }
 
     if (buttonHoldCounter == reboot_mode){
@@ -164,15 +168,15 @@ void loop() {
     if (trigger){
       trigger = !digitalRead(probe);
       if (!trigger){
-        sendPacket("N1"); // send signal for normal mode Issue resulved
+        sendPacket(okay); // send signal for normal mode Issue resulved
         // best place to watchdog reset
       }
       Serial.println ("probe triggered");
-      sendPacket("F1");
+      sendPacket(fault);
     }
 
     if (testMode){
-      sendPacket("T1");
+      sendPacket(test);
     }
   }
 
