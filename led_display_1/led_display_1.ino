@@ -41,13 +41,15 @@ void setup() {
 
 void loop() {
   for(int i = 0; i < msgLen; i++) {
+    if (stringComplete)
+      break;
     // Serial.print(*next);
     box.print(inputString[i]);
     delay(200);
   }
 
   if (stringComplete) {
-    Serial.println(inputString);
+    // Serial.println(inputString);
     // clear the string:
     // inputString = "";
     stringComplete = false;

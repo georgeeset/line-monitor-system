@@ -23,9 +23,9 @@ bool threeSec = false; // marker for states like fault desable and test
 byte buttonHoldCounter = 0; //count how long button remain pressed
 bool resetMode = false; // reset cpu delibrately
 bool testMode = false; // indicaate test mode
-const char okay[]= "N5xxxxx\n";
-const char fault[] = "F5xxxxx\n";
-const char test[] = "T5xxxxx\n";
+const char okay[]= "N3xxxxx\n";
+const char fault[] = "F3xxxxx\n";
+const char test[] = "T3xxxxx\n";
 // const unsigned long mcNumber = 1;
 
 

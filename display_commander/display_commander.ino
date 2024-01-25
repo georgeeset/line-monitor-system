@@ -1,11 +1,12 @@
 #include <SPI.h>
 #include <LoRa.h>
 #include <TimerOne.h>
+#include <avr/wdt.h>
 
 
 #define node_count 6
-#define alarm_duration 4
-#define alarm_relay 2
+#define alarm_duration 2
+#define alarm_relay 3
 
 // hrm@eurodistl.com.ng
 void setup() {
@@ -19,15 +20,22 @@ void setup() {
     while (1);
   }
 
-  Timer1.initialize(1000000); // set timer for 1/2 second
+  Timer1.initialize(1000000); // set timer for 1 second
   Timer1.attachInterrupt(timerIsr); // attach the timer interrupt
+
+  pinMode(alarm_relay, OUTPUT);
+  digitalWrite(alarm_relay, 0);
+
+  // Serial.println(firstMsg);
+
+  wdt_enable(WDTO_1S); // Enable the watchdog timer with an 1 second timeout
 }
 
 
 
 String offlineMsg = "Offline Nodes: ";
 String allOnlineMsg = "All Nodes Online     ";
-String alertMsg = "Fault @ Node ";
+String alertMsg = "Husky ";
 String firstMsg = "Line Monitor v0.0.2          ";
 String loraMsg = "";
 byte faultNodes = 0b00000000;
@@ -35,6 +43,8 @@ byte seenNodes = 0b00000000;
 char loraChar;
 byte okayCounter = 0; // count number of ping recieved from nodes
 bool alarmOn = false;
+byte comWatchdog = 0; // check if communication with lora has dropped for any reason
+byte comCounter = 0;
 
 
 byte secsCount = 0;
@@ -45,12 +55,27 @@ void timerIsr() {
     digitalWrite(alarm_relay, 1); // power on speaker
   }
 
-  if ((secsCount == 7)  && (digitalRead(alarm_relay))){
+  if ((secsCount == 5)  && (digitalRead(alarm_relay))){
      digitalWrite(alarm_relay, 0);
+    //  alarmOn = false;
+    //  faultNodes = 0; // clear everything
+    if (comCounter < 1){
+      while(1);
+    } else{
+      comCounter = 0;
+    }
   }
 
   if (secsCount > 10){
     secsCount = 0;
+    comCounter ++;
+    if ((comCounter > 3) && (comWatchdog < 1)){ // restart controller if communicaiton is lost
+      while(1);
+    }
+    else{
+      comWatchdog = 0;
+      comCounter = 0;
+    }
   }
 
 }
@@ -62,7 +87,7 @@ void updatePing(){
     return;
   okayCounter++;
   int j = 0;
-  if (okayCounter > node_count + 2){
+  if (okayCounter > node_count + 2 || comFault){
     for (j = 1; j <= node_count; j++){
       if (! bitRead(seenNodes, j)){
         comFault = true;
@@ -80,9 +105,10 @@ void updatePing(){
     if (comFault){
       Serial.print("   ");
       Serial.print('\n');
-    }
-    if (!comFault && !alarmOn) { // print this if no alarm and no communicaiton fault
-      Serial.println(allOnlineMsg);
+    } else {
+      if (!alarmOn) { // print this if no alarm and no communicaiton fault
+        Serial.println(allOnlineMsg);
+      }
     }
 
     okayCounter = 0; // clear counter
@@ -112,32 +138,37 @@ void updateFault(){
     Serial.print("   ");
     Serial.print('\n');
     alarmOn = true;
+    comCounter = 0;
   }else{
     if (alarmOn)
       Serial.println(firstMsg);
     alarmOn = false;
+    digitalWrite(alarm_relay, 0);
   }
 }
 
 void loop() {
   // try to parse packet
   int packetSize = LoRa.parsePacket();
+
   if (packetSize) {
     // received a packet
     // Serial.print("Received packet '");
 
     // read packet
     loraMsg = LoRa.readStringUntil('\n');
+    comCounter ++;
     // Serial.println(loraMsg);
     switch (loraMsg[0]){
       case 'N':
-        seenNodes |= (1 << loraMsg[1]-48);
-        faultNodes &= ~(1 << loraMsg[1]-48); // clear bit
+        seenNodes |= (1 << loraMsg[1] - 48);
+        // faultNodes &= ~(1 << loraMsg[1] - 48); // clear bit
+        bitWrite(faultNodes, (loraMsg[1] - 48), 0); //repeatS
         updateFault();
         updatePing();
         break;
       case 'F':
-        faultNodes |= (1 << loraMsg[1]-48);
+        faultNodes |= (1 << loraMsg[1] - 48);
         updateFault();
         break;
       case 'T':
@@ -150,4 +181,5 @@ void loop() {
     // Serial.print("' with RSSI ");
     // Serial.println(LoRa.packetRssi());
   }
+  wdt_reset(); // Reset the watchdog timer
 }
